@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -17,7 +18,9 @@ class MyApp extends StatelessWidget {
       home: SingupSection(),
       routes: {
         LandingScreen.id: (context) => LandingScreen(),
-        LoginSection.id: (context) => LoginSection()
+        LoginSection.id: (context) => LoginSection(),
+        LogoutScreen.id: (context) => LogoutScreen(),
+        PrivateRoute.id: (context) => PrivateRoute(),
       },
     );
   }
@@ -194,22 +197,168 @@ class LandingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(),
-        body: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Center(child: Text('This is the Landing Page.')),
-            FlatButton.icon(
-                onPressed: () async {
-                  SharedPreferences prefs =
-                      await SharedPreferences.getInstance();
-                  await prefs.setString('token', null);
+      appBar: AppBar(),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Center(child: Text('This is the Landing Page.')),
+        ],
+      ),
+      bottomNavigationBar: bottomNaviagtion(),
+    );
+  }
+}
 
-                  Navigator.pushNamed(context, LoginSection.id);
-                },
-                icon: Icon(Icons.send),
-                label: Text('Log out'))
-          ],
-        ));
+class LogoutScreen extends StatelessWidget {
+  static const String id = "LogoutScreen";
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Center(child: Text("This is the logout page")),
+          FlatButton.icon(
+              onPressed: () async {
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                await prefs.setString('token', null);
+
+                Navigator.pushNamed(context, LoginSection.id);
+              },
+              icon: Icon(Icons.send),
+              label: Text('Log out'))
+        ],
+      ),
+      bottomNavigationBar: bottomNaviagtion(),
+    );
+  }
+}
+
+/// This is the stateful widget that the main application instantiates.
+class bottomNaviagtion extends StatefulWidget {
+  bottomNaviagtion({Key key}) : super(key: key);
+
+  @override
+  _bottomNaviagtionState createState() => _bottomNaviagtionState();
+}
+
+/// This is the private State class that goes with bottomNaviagtion.
+class _bottomNaviagtionState extends State<bottomNaviagtion> {
+  int _selectedIndex = 0;
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+
+      if (index == 0) {
+        Navigator.pushNamed(context, LandingScreen.id);
+      } else if (index == 1) {
+        Navigator.pushNamed(context, PrivateRoute.id);
+      } else {
+        Navigator.pushNamed(context, LogoutScreen.id);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavigationBar(
+      items: const <BottomNavigationBarItem>[
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.business),
+          label: 'Business',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.school),
+          label: 'Logout',
+        ),
+      ],
+      currentIndex: _selectedIndex,
+      selectedItemColor: Colors.amber[800],
+      onTap: _onItemTapped,
+    );
+  }
+}
+
+Future<Album> fetchAlbum() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String token = prefs.getString("token");
+
+  final response = await http.get('http://10.0.2.2:5000/token/',
+      // Send authorization headers to the backend.
+      headers: {"token": token});
+
+  if (response.statusCode == 200) {
+    // If the server did return a 200 OK response,
+    // then parse the JSON.
+    return Album.fromJson(jsonDecode(response.body));
+  } else {
+    // If the server did not return a 200 OK response,
+    // then throw an exception.
+    throw Exception('Failed to load album');
+  }
+}
+
+class Album {
+  final String message;
+
+  Album({this.message});
+
+  factory Album.fromJson(Map<String, dynamic> json) {
+    return Album(
+      message: json['msg'],
+    );
+  }
+}
+
+class PrivateRoute extends StatefulWidget {
+  static const String id = "private Route";
+
+  PrivateRoute({Key key}) : super(key: key);
+
+  @override
+  _PrivateRouteState createState() => _PrivateRouteState();
+}
+
+class _PrivateRouteState extends State<PrivateRoute> {
+  Future<Album> futureAlbum;
+
+  @override
+  void initState() {
+    super.initState();
+    futureAlbum = fetchAlbum();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Scaffold(
+        appBar: AppBar(
+          title: Text('Fetch Data Example'),
+        ),
+        body: Center(
+          child: FutureBuilder<Album>(
+            future: futureAlbum,
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                return Text(snapshot.data.message);
+              } else if (snapshot.hasError) {
+                return Text("${snapshot.error}");
+              }
+
+              // By default, show a loading spinner.
+              return CircularProgressIndicator();
+            },
+          ),
+        ),
+        bottomNavigationBar: bottomNaviagtion(),
+      ),
+    );
   }
 }

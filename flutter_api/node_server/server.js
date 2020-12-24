@@ -29,7 +29,6 @@ app.get('/', (req, res) => {
 //signup route
 app.post('/signup/', async (req, res) => {
     const { email, password } = req.body;
-    console.log(email, password);
 
     let user = await User.findOne({ email });
 
@@ -65,6 +64,21 @@ app.post('/login/', async (req, res) => {
         var token = jwt.sign({ id: user.id }, 'password');
         return res.json({ token: token });
     }
+
+});
+
+//private route
+app.get('/token/', async (req, res) => {
+    let token = req.header("token");
+
+    if(!token) {
+        return res.json({ msg : 'user not allowed.'});
+    }
+
+    var decoded = jwt.verify(token, "password");
+    console.log(decoded.id);
+
+    return res.json({msg: "token is valid"})
 
 });
 
